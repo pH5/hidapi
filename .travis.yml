@@ -1,0 +1,31 @@
+# This is the project file for the automated build system travis (travis-ci.com).
+matrix:
+  include:
+    - name: "Linux"
+      os: linux
+      sudo: false
+      dist: trusty
+    - name: "macOS"
+      os: osx
+
+language: c
+
+compiler: gcc
+
+addons:
+  apt:
+    packages:
+      - libusb-1.0-0-dev
+      - ninja-build
+
+install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      curl -L https://github.com/ninja-build/ninja/releases/download/v1.8.2/ninja-linux.zip -o ninja.zip;
+      unzip ninja.zip;
+      pyenv global system 3.6;
+    fi
+  - pip3 install meson
+
+before_script: export PATH="$PWD:$PATH"
+
+script: meson build && ninja -C build
