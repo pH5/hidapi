@@ -37,17 +37,24 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef _WIN32
 #include <sys/ioctl.h>
 #include <sys/utsname.h>
+#endif
 #include <fcntl.h>
 #include <pthread.h>
 #include <wchar.h>
 
 /* GNU / LibUSB */
+#ifdef _WIN32
+#include "../libusbdll/libusb.h"
+#else
 #include <libusb.h>
 #ifndef __ANDROID__
 #include <iconv.h>
 #endif
+#endif
+
 
 #include "hidapi.h"
 
@@ -392,8 +399,12 @@ static wchar_t *get_usb_string(libusb_device_handle *dev, uint8_t idx)
 
 #ifndef __ANDROID__ /* we don't use iconv on Android */
 	wchar_t wbuf[256];
+
+#ifndef _WIN32
 	/* iconv variables */
 	iconv_t ic;
+#endif
+	
 	size_t inbytes;
 	size_t outbytes;
 	size_t res;
@@ -420,7 +431,7 @@ static wchar_t *get_usb_string(libusb_device_handle *dev, uint8_t idx)
 	if (len < 0)
 		return NULL;
 
-#ifdef __ANDROID__
+#if defined(_WIN32) || defined(__ANDROID__)
 
 	/* Bionic does not have iconv support nor wcsdup() function, so it
 	   has to be done manually.  The following code will only work for
@@ -506,7 +517,7 @@ int HID_API_EXPORT hid_init(void)
 		/* Init Libusb */
 		if (libusb_init(&usb_context))
 			return -1;
-
+		
 		/* Set the locale if it's not set. */
 		locale = setlocale(LC_CTYPE, NULL);
 		if (!locale)
@@ -1056,6 +1067,30 @@ int HID_API_EXPORT hid_write(hid_device *dev, const unsigned char *data, size_t 
 
 		return actual_length;
 	}
+}
+
+int HID_API_EXPORT hid_bulk_write(hid_device *dev, void *buf, size_t len)
+{
+	struct libusb_transfer *transfer;
+	uint8_t bEndpointAddress;
+	void *data;
+
+	transfer = libusb_alloc_transfer(0);
+	if (!transfer)
+		return -1;
+
+	data = (void*)malloc(len);
+	memcpy(data, buf, len);
+	if (!data)
+		return -1;
+
+	bEndpointAddress = dev->output_endpoint;
+	//bEndpointAddress = dev->device_handle->interface->altsetting[0].endpoint[1].bEndpointAddress | LIBUSB_ENDPOINT_OUT;
+	libusb_fill_bulk_transfer(transfer, dev->device_handle, bEndpointAddress,
+				  data, len, NULL, NULL, 0);
+	transfer->flags |= LIBUSB_TRANSFER_FREE_BUFFER |
+			   LIBUSB_TRANSFER_FREE_TRANSFER;
+	return libusb_submit_transfer(transfer);
 }
 
 /* Helper function, to simplify hid_read().
