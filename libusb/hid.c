@@ -573,7 +573,11 @@ struct hid_device_info  HID_API_EXPORT *hid_enumerate(unsigned short vendor_id, 
 				for (k = 0; k < intf->num_altsetting; k++) {
 					const struct libusb_interface_descriptor *intf_desc;
 					intf_desc = &intf->altsetting[k];
-					if (intf_desc->bInterfaceClass == LIBUSB_CLASS_HID) {
+					if ((intf_desc->bInterfaceClass == LIBUSB_CLASS_HID) ||
+					    ((intf_desc->bInterfaceClass == 255) &&
+					     (intf_desc->bInterfaceSubClass == 137) &&
+					     (intf_desc->bInterfaceProtocol == 1) &&
+					     (intf_desc->bNumEndpoints > 0))) {
 						interface_num = intf_desc->bInterfaceNumber;
 
 						/* Check the VID/PID against the arguments */
@@ -824,7 +828,7 @@ static void *read_thread(void *param)
 	/* Set up the transfer object. */
 	buf = malloc(length);
 	dev->transfer = libusb_alloc_transfer(0);
-	libusb_fill_interrupt_transfer(dev->transfer,
+	libusb_fill_bulk_transfer(dev->transfer,
 		dev->device_handle,
 		dev->input_endpoint,
 		buf,
@@ -915,7 +919,11 @@ hid_device * HID_API_EXPORT hid_open_path(const char *path)
 			for (k = 0; k < intf->num_altsetting; k++) {
 				const struct libusb_interface_descriptor *intf_desc;
 				intf_desc = &intf->altsetting[k];
-				if (intf_desc->bInterfaceClass == LIBUSB_CLASS_HID) {
+				if ((intf_desc->bInterfaceClass == LIBUSB_CLASS_HID) ||
+				    ((intf_desc->bInterfaceClass == 255) &&
+				     (intf_desc->bInterfaceSubClass == 137) &&
+				     (intf_desc->bInterfaceProtocol == 1) &&
+				     (intf_desc->bNumEndpoints > 0))) {
 					char *dev_path = make_path(usb_dev, intf_desc->bInterfaceNumber);
 					if (!strcmp(dev_path, path)) {
 						/* Matched Paths. Open this device */
